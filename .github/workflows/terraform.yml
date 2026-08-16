@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~1.10"
+          terraform_version: "1.15.8"
       - run: terraform fmt -check -diff
         working-directory: ${{ matrix.root }}
       - run: terraform init -backend=false
@@ -44,7 +44,7 @@ jobs:
       # creds, same posture as validate. See policy/s3_egress.rego for strength/limits.
       - name: Install conftest
         run: |
-          ver="0.56.0"   # pin to a current release; dependabot does not track this binary
+          ver="0.69.0"   # pin to a current release; dependabot does not track this binary
           curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${ver}/conftest_${ver}_Linux_x86_64.tar.gz" | tar -xz conftest
           sudo install conftest /usr/local/bin/
       - name: R1 gate — S3 egress must exist wherever ECS tasks do
