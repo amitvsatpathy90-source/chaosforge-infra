@@ -1,0 +1,31 @@
+# Dependabot — dependency + action update PRs. Free (GitHub-hosted); no AWS cost.
+#
+# NOTE on Docker: this repo's images are docker/Dockerfile.grafana / Dockerfile.prometheus under
+# observability/. Dependabot's docker ecosystem only matches files named exactly `Dockerfile` (or
+# `*.dockerfile`), NOT `Dockerfile.<name>`, so a docker entry here would be a silent no-op. Base-image
+# bumps for those two files are therefore manual until they are renamed to `*.dockerfile`. Flagged
+# rather than shipped as dead config.
+version: 2
+updates:
+  # Pin GitHub Actions by SHA and keep them current (supply-chain hygiene for the CI workflow).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Each Terraform root is independent (its own state); scan all four provider-constraint sets.
+  - package-ecosystem: terraform
+    directories:
+      - /bootstrap
+      - /foundation
+      - /chaosforge
+      - /rpe
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      terraform-providers:
+        patterns: ["*"]

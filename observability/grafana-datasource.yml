@@ -1,0 +1,12 @@
+# Same shape as chaosforge/docker/grafana/provisioning/datasources/datasource.yml, with the URL
+# pointed at the Cloud Map name instead of the compose service name. uid MUST stay
+# `chaosforge-prometheus` — the SLI dashboard JSON references it.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: chaosforge-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus.observability.internal:9090
+    isDefault: true
+    editable: false

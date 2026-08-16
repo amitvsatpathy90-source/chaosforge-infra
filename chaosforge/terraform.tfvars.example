@@ -1,0 +1,25 @@
+aws_region        = "us-east-1"
+state_bucket_name = "chaosforge-tfstate-REPLACE_WITH_ACCOUNT_ID"
+
+# From `terraform output detection_security_group_id` in rpe/, after rpe/
+# has been applied at least once. See variables.tf for why this is a plain
+# variable instead of a remote-state read.
+rpe_detection_security_group_id = "sg-REPLACE_AFTER_RPE_APPLY"
+
+# Must match what you actually ran docker/mtls/generate-certs.sh with — see secrets.tf.
+mtls_keystore_password   = "REPLACE_WITH_REAL_VALUE"
+mtls_truststore_password = "REPLACE_WITH_REAL_VALUE"
+
+# The 12-char git SHA chaosforge's CI pushed to ECR (Actions run log, or:
+# aws ecr describe-images --repository-name chaosforge/control-plane)
+image_tag = "REPLACE_WITH_GIT_SHA"
+
+# Required in the default (ALB-less) mode: the gateway task takes a public IP and serves plain HTTP,
+# so this must be YOUR address. 0.0.0.0/0 is refused — a bearer JWT would cross the internet in
+# cleartext. Find yours with:  curl -s https://checkip.amazonaws.com
+gateway_ingress_cidr = "REPLACE_WITH_YOUR_IP/32"
+
+# Only when enable_alb = true, and then it is REQUIRED (public ACM certificates are free, but need a
+# domain you control). Without it the ALB would terminate cleartext HTTP.
+# enable_alb          = true
+# acm_certificate_arn = "arn:aws:acm:us-east-1:REPLACE_WITH_ACCOUNT_ID:certificate/REPLACE"

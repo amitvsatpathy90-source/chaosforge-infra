@@ -1,0 +1,4 @@
+aws_region          = "us-east-1"
+monthly_budget_usd  = 25
+budget_alert_email  = "you@example.com"
+github_repositories = ["your-github-user/chaosforge", "your-github-user/revenue-protection-engine"]

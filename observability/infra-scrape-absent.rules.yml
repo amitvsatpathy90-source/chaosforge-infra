@@ -1,0 +1,52 @@
+# Infra-owned rule file (chaosforge-infra, NOT copied from a sibling repo like alerts.yml /
+# dlt.rules.yml / redis.rules.yml — those stay parity-copied verbatim by build-push.sh and must
+# not be touched here). Lives directly in observability/ and is COPYed by Dockerfile.prometheus.
+#
+# Closes the alert-blind spot found in the mTLS cert-provisioning gap analysis: a missing
+# /mnt/mtls/ca-cert.pem (or key/cert) makes Prometheus fail to create the control-plane /
+# execution-service scrape pools at all (verified empirically — promtool boot test against the
+# merged config with no certs present: "error creating new scrape pool ... unable to read CA
+# cert"). No `up` series is ever produced for those jobs, so no `up == 0` rule can catch it —
+# absent() is the only construct that sees a job with zero series.
+#
+# `for: 2m` — chosen after config load right after task start (edge-gateway needs no cert and
+# scrapes immediately); 2m clears normal startup jitter for the mTLS-mounted jobs without masking
+# a real missing-cert failure at Phase 5's desired-count bump (docs/runbooks/apply-session.md).
+#
+# Two rules, not one absent(up{job=~"..."}) — verified by boot-testing this file: absent() only
+# propagates labels from equality matchers, so a regex job matcher fires with $labels.job empty
+# ("No scrape series for  — ..."), useless for triage. One rule per job keeps the label populated.
+groups:
+  - name: infra-scrape-absent
+    rules:
+      - alert: MtlsScrapeTargetsAbsent
+        expr: absent(up{job="control-plane"}) == 1
+        for: 2m
+        labels:
+          severity: ticket
+          job: control-plane
+        annotations:
+          summary: "No scrape series for control-plane — mTLS scrape pool likely failed to create"
+          description: >-
+            Prometheus has produced zero `up` samples for control-plane for over 2m. This is not
+            the same as a target being DOWN (which still emits up=0) — it means the scrape pool
+            itself never came up, the signature of a missing/unreadable cert at /mnt/mtls
+            (ca-cert.pem, prometheus-cert.pem, prometheus-key.pem). Check the observability-mtls
+            EFS access point contents and Phase 4 of docs/runbooks/apply-session.md before
+            assuming the service is merely unreachable.
+
+      - alert: MtlsScrapeTargetsAbsent
+        expr: absent(up{job="execution-service"}) == 1
+        for: 2m
+        labels:
+          severity: ticket
+          job: execution-service
+        annotations:
+          summary: "No scrape series for execution-service — mTLS scrape pool likely failed to create"
+          description: >-
+            Prometheus has produced zero `up` samples for execution-service for over 2m. This is
+            not the same as a target being DOWN (which still emits up=0) — it means the scrape
+            pool itself never came up, the signature of a missing/unreadable cert at /mnt/mtls
+            (ca-cert.pem, prometheus-cert.pem, prometheus-key.pem). Check the observability-mtls
+            EFS access point contents and Phase 4 of docs/runbooks/apply-session.md before
+            assuming the service is merely unreachable.

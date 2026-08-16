@@ -1,0 +1,7 @@
+# Derived Grafana image — bakes datasource + dashboard provisioning compose bind-mounts.
+# Anonymous access OFF (public IP, unlike local); no grafana-data volume (destroy-per-session).
+FROM grafana/grafana:11.3.0
+
+COPY grafana-datasource.yml    /etc/grafana/provisioning/datasources/datasource.yml
+COPY dashboards.yml            /etc/grafana/provisioning/dashboards/dashboards.yml
+COPY chaosforge-slis.json      /etc/dashboards/chaosforge-slis.json

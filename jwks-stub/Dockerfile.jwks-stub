@@ -1,0 +1,8 @@
+# Lab IdP stub (ADR-0404) — nginx serving one merged JWK Set for both systems.
+# jwks.json is a build artifact from both repos' generate-jwks.sh; public key material only.
+FROM nginx:1.27-alpine
+
+COPY jwks.json /usr/share/nginx/html/.well-known/jwks.json
+
+# nginx worker runs as non-root; ensure it can read the file.
+RUN chmod 644 /usr/share/nginx/html/.well-known/jwks.json

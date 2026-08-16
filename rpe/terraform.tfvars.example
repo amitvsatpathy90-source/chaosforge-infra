@@ -1,0 +1,10 @@
+aws_region        = "us-east-1"
+state_bucket_name = "chaosforge-tfstate-REPLACE_WITH_ACCOUNT_ID"
+
+# Optional — leave blank ("") to run rpe-triage-agent in its documented degraded mode (ADR-15 §9)
+# on purpose, rather than a startup failure. Real DB/OAuth secrets are generated/left-blank
+# automatically (secrets.tf) and don't belong in this file.
+openai_api_key = ""
+
+# The 12-char git SHA rpe's CI pushed to ECR
+image_tag = "REPLACE_WITH_GIT_SHA"

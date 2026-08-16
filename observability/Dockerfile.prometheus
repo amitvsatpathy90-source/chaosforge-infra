@@ -1,0 +1,22 @@
+# Derived Prometheus image for the AWS stack (same pattern as the chaosforge postgres derived
+# image): Fargate can't bind-mount repo files the way both repos' compose files do, so the config
+# and BOTH repos' rule files are baked in. build-push.sh assembles the build context (it copies
+# alerts.yml / dlt.rules.yml from the sibling repos) — don't docker-build this file directly.
+# Version pinned to chaosforge's compose pin (v2.55.1); rpe's compose doesn't pin a different one.
+FROM prom/prometheus:v2.55.1
+
+COPY prometheus.yml            /etc/prometheus/prometheus.yml
+COPY alerts.yml                /etc/prometheus/alerts.yml
+COPY dlt.rules.yml             /etc/prometheus/rules/dlt.rules.yml
+COPY redis.rules.yml           /etc/prometheus/rules/redis.rules.yml
+# Infra-owned (not copied from a sibling repo, unlike the three above) — see the file header.
+COPY infra-scrape-absent.rules.yml /etc/prometheus/rules/infra-scrape-absent.rules.yml
+
+# arch-audit F-02: the scrape token is no longer baked in at build time (it used to be — a live
+# bearer JWT in an ECR image that survives `terraform destroy`). entrypoint-prometheus.sh writes
+# it from PROM_SCRAPE_TOKEN (an SSM SecureString injected at task start, foundation/observability.tf)
+# to the same file path prometheus.yml's credentials_file already reads, then execs the real binary.
+COPY entrypoint-prometheus.sh  /entrypoint.sh
+# chmod in-build, not relied on from git's executable bit (cross-platform checkout can drop it).
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

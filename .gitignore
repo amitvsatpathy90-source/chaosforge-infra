@@ -1,0 +1,39 @@
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+!backend.hcl.example
+crash.log
+override.tf
+override.tf.json
+.DS_Store
+# observability/build-push.sh copies these from the sibling repos at build time and deletes them
+# after; ignored in case an interrupted build leaves them behind — their sources of truth live in
+# the chaosforge / revenue-protection-engine repos, never here.
+observability/alerts.yml
+observability/dlt.rules.yml
+observability/dashboards.yml
+observability/chaosforge-slis.json
+# NOTE: observability/scrape_token is intentionally NOT listed here anymore (arch-audit F-02) — it
+# is no longer a build-context artifact at all; the token is written at container runtime inside
+# the task (entrypoint-prometheus.sh), never touching the host filesystem or the image layers.
+
+# jwks-stub/build-push.sh merges both repos' PUBLIC JWK Sets here at build time and deletes it
+# after; ignored in case an interrupted build leaves it behind. Sources of truth are
+# {chaosforge/docker/jwks, revenue-protection-engine/deploy/oauth}/public/, themselves git-ignored
+# and regenerable. The RS256 signing keys live in those repos' keys/ directories, are never copied
+# here, and must never be.
+jwks-stub/jwks.json
+
+# archive_file writes the budget-teardown Lambda zip here at plan time (foundation/cost-guardrail.tf).
+# A build artifact, never a source.
+.build/
+
+# World-facing-only convention, matching chaosforge / revenue-protection-engine: CLAUDE.md +
+# .claude/ (rules + local settings) are the private working-instructions layer, uploaded to the
+# chat knowledge base for AI context instead of shipped in the public repo. Supersedes the
+# narrower .claude/settings.local.json-only ignore this repo used to carry.
+.claude/
+CLAUDE.md

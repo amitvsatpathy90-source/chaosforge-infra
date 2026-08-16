@@ -1,0 +1,51 @@
+# Terraform quality gate: fmt + validate on every root, every push/PR.
+#
+# Deliberately NO plan/apply in CI (a reviewed decision, not an omission):
+#   - `apply` on merge would create billable infrastructure unprompted — the exact opposite of the
+#     destroy-per-session cost model (README "Cost model"). Sessions are started by a human.
+#   - `plan` in CI needs backend credentials + every root's tfvars (mTLS passwords, SG IDs) copied
+#     into GitHub secrets, plus foundation state to already exist — real coupling for a one-operator
+#     lab whose applies happen locally minutes later anyway.
+#   Upgrade path when this ever becomes multi-operator: move tfvars values to GitHub Environments,
+#   add an OIDC plan job (vars.AWS_DEPLOY_ROLE_ARN), keep apply behind a manual environment gate.
+#
+# validate runs with -backend=false: full syntax/schema/reference checking, no state, no creds —
+# catches exactly the class of bug a machineless review can miss (the "brace-count checks" this
+# repo's modules were reviewed with are no substitute; this is the real validator).
+name: terraform
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        root: [bootstrap, foundation, chaosforge, rpe]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+      - run: terraform fmt -check -diff
+        working-directory: ${{ matrix.root }}
+      - run: terraform init -backend=false
+        working-directory: ${{ matrix.root }}
+      - run: terraform validate
+        working-directory: ${{ matrix.root }}
+      # R1 policy gate (audit finding): a root that runs Fargate tasks must declare S3-prefix-list
+      # egress, or every task fails at image-layer pull (ECR serves layers from S3). Offline — no
+      # creds, same posture as validate. See policy/s3_egress.rego for strength/limits.
+      - name: Install conftest
+        run: |
+          ver="0.56.0"   # pin to a current release; dependabot does not track this binary
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${ver}/conftest_${ver}_Linux_x86_64.tar.gz" | tar -xz conftest
+          sudo install conftest /usr/local/bin/
+      - name: R1 gate — S3 egress must exist wherever ECS tasks do
+        run: conftest test --parser hcl2 --combine --policy policy/s3_egress.rego ${{ matrix.root }}/*.tf
