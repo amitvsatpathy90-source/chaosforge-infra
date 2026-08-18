@@ -18,7 +18,7 @@ locals {
 # stops reporting, the experiment escaped its blast radius and must halt.
 # Gate alaram to avoid orphan alarma when enable_fis = false
 resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
-  count               = var.enable_fis ? 1 : 0  
+  count               = var.enable_fis ? 1 : 0
   alarm_name          = "chaosforge-fis-steady-state-breach"
   alarm_description   = "Halts any running FIS experiment: chaosforge-control-plane is thrashing, or has stopped reporting entirely."
   namespace           = "AWS/ECS"
