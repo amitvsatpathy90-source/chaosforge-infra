@@ -10,7 +10,7 @@ variable "observability_desired_count" {
 }
 
 variable "grafana_ingress_cidr" {
-  description = "CIDR allowed to reach Grafana's public IP on 3000. Recommend your own IP/32. Grafana requires the admin password either way (anonymous access is OFF in AWS — unlike local, this has a public IP)."
+  description = "CIDR allowed to reach Grafana's public IP on 3000. Recommend your own IP/32. Grafana requires the admin password either way (anonymous access is OFF in AWS - unlike local, this has a public IP)."
   type        = string
   default     = "0.0.0.0/0"
 }
@@ -56,7 +56,7 @@ resource "aws_service_discovery_service" "prometheus" {
 resource "aws_security_group" "prometheus" {
   name_prefix = "observability-prometheus-"
   vpc_id      = aws_vpc.platform.id
-  description = "Prometheus. No ingress except Grafana; egress VPC-wide (scrape targets live in chaosforge/rpe SGs whose IDs this state can't reference without a circular read — targets are enumerated in prometheus.yml, the SG stays CIDR-scoped)."
+  description = "Prometheus. No ingress except Grafana; egress VPC-wide (scrape targets live in chaosforge/rpe SGs whose IDs this state cannot reference without a circular read - targets are enumerated in prometheus.yml, the SG stays CIDR-scoped)."
 }
 
 resource "aws_security_group" "grafana" {
@@ -121,7 +121,7 @@ resource "aws_vpc_security_group_egress_rule" "grafana_dns" {
   ip_protocol       = "udp"
 }
 
-# R1 fix: S3 Gateway endpoint has no ENI/SG, reached via prefix list only — required for image pulls.
+# R1 fix: S3 Gateway endpoint has no ENI/SG, reached via prefix list only - required for image pulls.
 # Every Fargate task foundation owns belongs in this map; add new tasks here, not a private copy.
 locals {
   foundation_task_security_groups = {
@@ -138,13 +138,13 @@ resource "aws_vpc_security_group_egress_rule" "s3_image_layers" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
-  description       = "S3 gateway endpoint — ECR serves image layers from S3, not ecr.dkr (R1 fix)"
+  description       = "S3 gateway endpoint - ECR serves image layers from S3, not ecr.dkr (R1 fix)"
 }
 
 # ── mTLS material for scraping CP/Exec ────────────────────────────────────
-# Prometheus's own internal-CA client identity (PEM — prometheus reads PEM, not .p12), generated
+# Prometheus's own internal-CA client identity (PEM - prometheus reads PEM, not .p12), generated
 # by chaosforge's generate-certs.sh alongside the service keystores and copied here manually, same
-# one-time step as chaosforge's mtls volume. ClientMount ONLY on the task role — prometheus reads
+# one-time step as chaosforge's mtls volume. ClientMount ONLY on the task role - prometheus reads
 # certs, never writes.
 
 resource "aws_efs_file_system" "observability_mtls" {
@@ -210,7 +210,7 @@ resource "aws_ssm_parameter" "grafana_admin_password" {
 # arch-audit F-02: was baked into the Prometheus image at build time (observability/build-push.sh),
 # so a live bearer JWT sat in ECR layers that survive `terraform destroy`. Now injected at container
 # start (entrypoint-prometheus.sh writes it to the file prometheus.yml's credentials_file reads).
-# Default sentinel matches the RPE IdP follow-up's placeholder — targets show DOWN, not broken.
+# Default sentinel matches the RPE IdP follow-up's placeholder - targets show DOWN, not broken.
 variable "prometheus_scrape_token" {
   description = "Bearer JWT with SCOPE_metrics:scrape for RPE's /actuator/prometheus (ADR-19). Mint with rpe/deploy/oauth/mint-jwt.sh --ttl 2592000. Default leaves rpe-* scrape targets DOWN, not broken."
   type        = string
@@ -240,7 +240,7 @@ data "aws_iam_policy_document" "obs_tasks_assume" {
 resource "aws_iam_role" "obs_execution" {
   name                 = "observability-execution"
   assume_role_policy   = data.aws_iam_policy_document.obs_tasks_assume.json
-  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix — see iam-task-role-boundary.tf
+  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix - see iam-task-role-boundary.tf
 }
 
 resource "aws_iam_role_policy_attachment" "obs_execution_managed" {
@@ -265,13 +265,13 @@ resource "aws_iam_role_policy" "obs_execution_secrets" {
 resource "aws_iam_role" "obs_task" {
   name                 = "observability-task"
   assume_role_policy   = data.aws_iam_policy_document.obs_tasks_assume.json
-  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix — see iam-task-role-boundary.tf
+  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix - see iam-task-role-boundary.tf
 }
 
 data "aws_iam_policy_document" "obs_task_efs" {
   statement {
     effect    = "Allow"
-    actions   = ["elasticfilesystem:ClientMount"] # read-only — prometheus reads certs, never writes
+    actions   = ["elasticfilesystem:ClientMount"] # read-only - prometheus reads certs, never writes
     resources = [aws_efs_file_system.observability_mtls.arn]
   }
 }
@@ -316,13 +316,13 @@ resource "aws_ecs_task_definition" "prometheus" {
     image     = "${aws_ecr_repository.observability["prometheus"].repository_url}:v2.55.1-obs2"
     essential = true
     # Compose-parity flags. TSDB is ephemeral task storage on purpose: 3d retention < session
-    # length anyway, and destroy-per-session means history dies with the session regardless —
+    # length anyway, and destroy-per-session means history dies with the session regardless -
     # an EFS TSDB would be paying to persist data the workflow throws away.
     command      = ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=3d"]
     portMappings = [{ containerPort = 9090, protocol = "tcp" }]
     mountPoints  = [{ sourceVolume = "mtls", containerPath = "/mnt/mtls", readOnly = true }]
     # arch-audit F-02: entrypoint-prometheus.sh writes this to /etc/prometheus/scrape_token at
-    # container start — command's args above still reach /bin/prometheus via the entrypoint's "$@".
+    # container start - command's args above still reach /bin/prometheus via the entrypoint's "$@".
     secrets = [
       { name = "PROM_SCRAPE_TOKEN", valueFrom = aws_ssm_parameter.prometheus_scrape_token.arn },
     ]
@@ -359,7 +359,7 @@ resource "aws_ecs_task_definition" "grafana" {
     essential    = true
     portMappings = [{ containerPort = 3000, protocol = "tcp" }]
     environment = [
-      # Explicitly OFF — local compose enables anonymous Viewer, but local is loopback-only and
+      # Explicitly OFF - local compose enables anonymous Viewer, but local is loopback-only and
       # this task has a public IP. Deliberate divergence, documented in Dockerfile.grafana too.
       { name = "GF_AUTH_ANONYMOUS_ENABLED", value = "false" },
     ]
@@ -408,7 +408,7 @@ resource "aws_ecs_service" "grafana" {
   desired_count   = var.observability_desired_count
   launch_type     = "FARGATE"
 
-  # Public subnet + public IP — the session's dashboard access path. IPv4 bills only while the
+  # Public subnet + public IP - the session's dashboard access path. IPv4 bills only while the
   # task runs; SG restricts to grafana_ingress_cidr; password auth on top (anonymous OFF).
   network_configuration {
     subnets          = [for s in aws_subnet.public : s.id]

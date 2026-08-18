@@ -16,7 +16,9 @@ locals {
 
 # Abort path — see rpe/fis.tf. Steady-state subject is the Control Plane; if it thrashes or
 # stops reporting, the experiment escaped its blast radius and must halt.
+# Gate alaram to avoid orphan alarma when enable_fis = false
 resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
+  count               = var.enable_fis ? 1 : 0  
   alarm_name          = "chaosforge-fis-steady-state-breach"
   alarm_description   = "Halts any running FIS experiment: chaosforge-control-plane is thrashing, or has stopped reporting entirely."
   namespace           = "AWS/ECS"
@@ -35,13 +37,13 @@ resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
 }
 
 resource "aws_fis_experiment_template" "chaosforge" {
-  for_each    = local.chaosforge_fis_experiments
+  for_each    = var.enable_fis ? local.chaosforge_fis_experiments : {}
   description = each.value.description
   role_arn    = data.terraform_remote_state.foundation.outputs.fis_role_arn
 
   stop_condition {
     source = "aws:cloudwatch:alarm"
-    value  = aws_cloudwatch_metric_alarm.fis_steady_state.arn
+    value  = aws_cloudwatch_metric_alarm.fis_steady_state[0].arn
   }
 
   action {

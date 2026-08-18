@@ -1,7 +1,7 @@
 # Bare SG shells, all rules as separate aws_vpc_security_group_*_rule resources (same style as
 # chaosforge/security-groups.tf). RPE has zero public HTTP surface. Ports verified against source:
 # detection 8080, triage 8081, relay 8082, alert 8083, postgres 5432, redis 6379, redpanda 9092.
-# Inter-service comms Kafka-only (ADR-17) — no ingress between the four app SGs.
+# Inter-service comms Kafka-only (ADR-17) - no ingress between the four app SGs.
 
 resource "aws_security_group" "detection" {
   name_prefix = "rpe-detection-"
@@ -12,31 +12,31 @@ resource "aws_security_group" "detection" {
 resource "aws_security_group" "relay" {
   name_prefix = "rpe-relay-"
   vpc_id      = local.vpc_id
-  description = "rpe-relay-service. Outbox poller + Kafka producer only — no ingress."
+  description = "rpe-relay-service. Outbox poller + Kafka producer only - no ingress."
 }
 
 resource "aws_security_group" "alert" {
   name_prefix = "rpe-alert-"
   vpc_id      = local.vpc_id
-  description = "rpe-alert-service. Kafka consumer only — no ingress."
+  description = "rpe-alert-service. Kafka consumer only - no ingress."
 }
 
 resource "aws_security_group" "triage" {
   name_prefix = "rpe-triage-"
   vpc_id      = local.vpc_id
-  description = "rpe-triage-agent. Kafka consumer + outbound LLM call only — no ingress."
+  description = "rpe-triage-agent. Kafka consumer + outbound LLM call only - no ingress."
 }
 
 resource "aws_security_group" "postgres" {
   name_prefix = "rpe-postgres-"
   vpc_id      = local.vpc_id
-  description = "CNPG Postgres — outbox/processed_alerts/triaged_alerts. Ingress from all four services (each owns disjoint tables/schemas, ADR-17 SS3.4/SS5.2)."
+  description = "CNPG Postgres - outbox/processed_alerts/triaged_alerts. Ingress from all four services (each owns disjoint tables/schemas, ADR-17 SS3.4/SS5.2)."
 }
 
 resource "aws_security_group" "redis" {
   name_prefix = "rpe-redis-"
   vpc_id      = local.vpc_id
-  description = "Hot-path dedup/velocity/z-score/geo state (detection), agent tool lookups (triage). Ingress from detection and triage only — relay and alert never touch Redis."
+  description = "Hot-path dedup/velocity/z-score/geo state (detection), agent tool lookups (triage). Ingress from detection and triage only - relay and alert never touch Redis."
 }
 
 resource "aws_security_group" "redpanda" {
@@ -62,7 +62,7 @@ resource "aws_vpc_security_group_ingress_rule" "postgres_from_services" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "redis_from_services" {
-  # Triage also uses Redis (TriageTools.java, TriagedVerdictPublisher.java), not just detection —
+  # Triage also uses Redis (TriageTools.java, TriagedVerdictPublisher.java), not just detection -
   # Restricted ingress boundary for cross-service communication.
   for_each = {
     detection = aws_security_group.detection.id
@@ -89,7 +89,7 @@ resource "aws_vpc_security_group_ingress_rule" "redpanda_from_services" {
   ip_protocol                  = "tcp"
 }
 
-# ── Cross-system: ChaosForge's steady-state probe — both halves declared in
+# ── Cross-system: ChaosForge's steady-state probe - both halves declared in
 # chaosforge/security-groups.tf (ADR-0401). Do not re-add a remote-state read of chaosforge/ here.
 
 # ── Egress ──────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ resource "aws_vpc_security_group_egress_rule" "dns_tcp" {
   ip_protocol       = "tcp"
 }
 
-# R1 fix: the S3 Gateway endpoint has no ENI/SG (unlike ecr.api/ecr.dkr above) — it's reached via
+# R1 fix: the S3 Gateway endpoint has no ENI/SG (unlike ecr.api/ecr.dkr above) - it's reached via
 # prefix list only. ECR serves image layers from S3; without this every task in this root times
 # out on CannotPullContainerError once past the manifest/auth handshake.
 resource "aws_vpc_security_group_egress_rule" "s3_image_layers" {
@@ -148,7 +148,7 @@ resource "aws_vpc_security_group_egress_rule" "s3_image_layers" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
-  description       = "S3 gateway endpoint — ECR serves image layers from S3, not ecr.dkr (R1 fix)"
+  description       = "S3 gateway endpoint - ECR serves image layers from S3, not ecr.dkr (R1 fix)"
 }
 
 resource "aws_vpc_security_group_egress_rule" "services_to_postgres" {
@@ -181,7 +181,7 @@ resource "aws_vpc_security_group_egress_rule" "redis_consumers_egress" {
   ip_protocol                  = "tcp"
 }
 
-# ── Lab IdP stub (foundation/jwks-stub.tf) — ADR-0404. Runtime dep only: services boot and 401
+# ── Lab IdP stub (foundation/jwks-stub.tf) - ADR-0404. Runtime dep only: services boot and 401
 # (fail-closed) without it, not crashloop. Egress declared here, one-way foundation->child read.
 resource "aws_vpc_security_group_egress_rule" "services_to_jwks_stub" {
   for_each                     = local.rpe_task_security_groups
@@ -190,12 +190,12 @@ resource "aws_vpc_security_group_egress_rule" "services_to_jwks_stub" {
   from_port                    = 80
   to_port                      = 80
   ip_protocol                  = "tcp"
-  description                  = "JWKS fetch at boot — jwks-stub.observability.internal (ADR-19 decoder construction)"
+  description                  = "JWKS fetch at boot - jwks-stub.observability.internal (ADR-19 decoder construction)"
 }
 
 # ── Prometheus scrape ingress (Module 6) ─────────────────────────────────
 # Same pattern as chaosforge/security-groups.tf. These scrapes will show DOWN until the RPE IdP
-# follow-up lands (ADR-19 fail-closed — the services themselves don't boot without an issuer);
+# follow-up lands (ADR-19 fail-closed - the services themselves don't boot without an issuer);
 # the L4 path is wired now so the IdP is the only remaining piece.
 resource "aws_vpc_security_group_ingress_rule" "scrape_from_prometheus" {
   for_each = {
@@ -213,10 +213,10 @@ resource "aws_vpc_security_group_ingress_rule" "scrape_from_prometheus" {
 }
 
 # Resolved (was an open gap through Module 3): rpe-triage-agent calls
-# OpenAI's real hosted API (spring.ai.openai, model gpt-4o-mini — verified
+# OpenAI's real hosted API (spring.ai.openai, model gpt-4o-mini - verified
 # against application.yml, not assumed), not a self-hosted model. The NAT
 # Gateway added earlier in Module 4 (foundation/network.tf) provides the
-# routing; this is the SG-level permission, scoped to triage only — no
+# routing; this is the SG-level permission, scoped to triage only - no
 # other RPE service gets general internet egress.
 resource "aws_vpc_security_group_egress_rule" "triage_to_internet_https" {
   security_group_id = aws_security_group.triage.id
@@ -224,5 +224,5 @@ resource "aws_vpc_security_group_egress_rule" "triage_to_internet_https" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
-  description       = "OpenAI API (ADR-15) — only RPE service with general internet egress"
+  description       = "OpenAI API (ADR-15) - only RPE service with general internet egress"
 }

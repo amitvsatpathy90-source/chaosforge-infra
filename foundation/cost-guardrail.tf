@@ -2,7 +2,7 @@
 # never touches Terraform state or runs destroy. Default ON.
 
 variable "enable_budget_teardown" {
-  description = "Default true: on a budget-threshold SNS alert, a Lambda scales all ECS services to 0 (stops Fargate burn — the only thing that climbs the bill post-5.5). Idempotent, safe, ~$0 to keep armed."
+  description = "Default true: on a budget-threshold SNS alert, a Lambda scales all ECS services to 0 (stops Fargate burn - the only thing that climbs the bill post-5.5). Idempotent, safe, ~$0 to keep armed."
   type        = bool
   default     = true
 }
@@ -21,7 +21,7 @@ data "archive_file" "budget_teardown" {
 
       def handler(event, context):
           # Scale every service in the platform cluster to 0. Idempotent: already-0 services are
-          # updated to 0 again (no-op). This is the budget circuit breaker — see cost-guardrail.tf.
+          # updated to 0 again (no-op). This is the budget circuit breaker - see cost-guardrail.tf.
           paginator = ecs.get_paginator("list_services")
           zeroed = []
           for page in paginator.paginate(cluster=CLUSTER):
@@ -50,7 +50,7 @@ resource "aws_iam_role" "budget_teardown" {
   count                = var.enable_budget_teardown ? 1 : 0
   name                 = "platform-budget-teardown"
   assume_role_policy   = data.aws_iam_policy_document.budget_teardown_assume[0].json
-  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix — see iam-task-role-boundary.tf
+  permissions_boundary = aws_iam_policy.task_role_boundary.arn # R2 fix - see iam-task-role-boundary.tf
 }
 
 data "aws_iam_policy_document" "budget_teardown_permissions" {
@@ -67,7 +67,7 @@ data "aws_iam_policy_document" "budget_teardown_permissions" {
     actions   = ["ecs:UpdateService"]
     resources = ["arn:aws:ecs:${var.aws_region}:*:service/${aws_ecs_cluster.platform.name}/*"]
   }
-  # CloudWatch Logs for the Lambda's own output — no log group pre-created; Lambda makes it.
+  # CloudWatch Logs for the Lambda's own output - no log group pre-created; Lambda makes it.
   statement {
     effect    = "Allow"
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
