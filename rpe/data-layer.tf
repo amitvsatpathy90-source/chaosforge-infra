@@ -70,7 +70,7 @@ resource "aws_efs_mount_target" "data" {
 resource "aws_security_group" "efs_mount_targets" {
   name_prefix = "rpe-efs-"
   vpc_id      = local.vpc_id
-  description = "EFS mount targets for RPE's stateful containers' data directories (NFS, port 2049)."
+  description = "EFS mount targets for RPE stateful containers data directories (NFS, port 2049)."
 }
 
 resource "aws_vpc_security_group_ingress_rule" "efs_from_stateful_services" {

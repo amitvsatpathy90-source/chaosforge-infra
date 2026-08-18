@@ -28,7 +28,9 @@ locals {
 # guard (AWS/ECS MemoryUtilization on rpe-detection), not a real SLO guard — CloudWatch can't see
 # Prometheus SLIs. treat_missing_data="breaching" means the alarm is in ALARM at desired_count=0 —
 # bring the stack up before starting an experiment (Target system must be UP). ~$0.10/mo.
+# Gate alaram to avoid orphan alarma when enable_fis = false
 resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
+  count               = var.enable_fis ? 1 : 0
   alarm_name          = "rpe-fis-steady-state-breach"
   alarm_description   = "Halts any running FIS experiment: rpe-detection is thrashing, or has stopped reporting entirely."
   namespace           = "AWS/ECS"
@@ -47,13 +49,13 @@ resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
 }
 
 resource "aws_fis_experiment_template" "rpe" {
-  for_each    = local.rpe_fis_experiments
+  for_each    = var.enable_fis ? local.rpe_fis_experiments : {}
   description = each.value.description
   role_arn    = data.terraform_remote_state.foundation.outputs.fis_role_arn
 
   stop_condition {
     source = "aws:cloudwatch:alarm"
-    value  = aws_cloudwatch_metric_alarm.fis_steady_state.arn
+    value  = aws_cloudwatch_metric_alarm.fis_steady_state[0].arn
   }
 
   action {
