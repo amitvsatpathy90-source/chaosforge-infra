@@ -17,6 +17,10 @@ locals {
 # Abort path — see rpe/fis.tf. Steady-state subject is the Control Plane; if it thrashes or
 # stops reporting, the experiment escaped its blast radius and must halt.
 resource "aws_cloudwatch_metric_alarm" "fis_steady_state" {
+<<<<<<< Updated upstream
+=======
+  count               = var.enable_fis ? 1 : 0
+>>>>>>> Stashed changes
   alarm_name          = "chaosforge-fis-steady-state-breach"
   alarm_description   = "Halts any running FIS experiment: chaosforge-control-plane is thrashing, or has stopped reporting entirely."
   namespace           = "AWS/ECS"

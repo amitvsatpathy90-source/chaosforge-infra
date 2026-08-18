@@ -32,7 +32,14 @@ data "aws_iam_policy_document" "github_deploy_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
+<<<<<<< Updated upstream
       values   = [for repo in var.github_repositories : "repo:${repo}:*"]
+=======
+      values = concat(
+        [for repo in var.github_repositories : "repo:${repo}:*"],
+        var.github_immutable_subs
+      )
+>>>>>>> Stashed changes
     }
   }
 }
