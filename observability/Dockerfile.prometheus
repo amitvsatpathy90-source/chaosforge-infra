@@ -5,6 +5,9 @@
 # Version pinned to chaosforge's compose pin (v2.55.1); rpe's compose doesn't pin a different one.
 FROM prom/prometheus:v2.55.1
 
+# regain root for the file setup
+USER root
+
 COPY prometheus.yml            /etc/prometheus/prometheus.yml
 COPY alerts.yml                /etc/prometheus/alerts.yml
 COPY dlt.rules.yml             /etc/prometheus/rules/dlt.rules.yml
@@ -19,4 +22,7 @@ COPY infra-scrape-absent.rules.yml /etc/prometheus/rules/infra-scrape-absent.rul
 COPY entrypoint-prometheus.sh  /entrypoint.sh
 # chmod in-build, not relied on from git's executable bit (cross-platform checkout can drop it).
 RUN chmod +x /entrypoint.sh
+
+# drop back to the base-image's non root posture before entrypoint
+USER nobody
 ENTRYPOINT ["/entrypoint.sh"]

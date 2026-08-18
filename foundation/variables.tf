@@ -18,3 +18,9 @@ variable "github_repositories" {
   description = "GitHub \"org/repo\" strings allowed to assume the CI deploy role via OIDC, e.g. [\"amitsatpathy/chaosforge\", \"amitsatpathy/revenue-protection-engine\"]"
   type        = list(string)
 }
+
+variable "github_immutable_subs" {
+  description = "Full OIDC 'sub' strings for repos on GitHub's immutable subject format (owner@ownerID/repo@repoID) — needed alongside github_repositories when a repo predates or postdates the cutoff differently than its siblings."
+  type        = list(string)
+  default     = []
+}

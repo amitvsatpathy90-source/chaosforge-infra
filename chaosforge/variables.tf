@@ -23,3 +23,10 @@ variable "log_retention_days" {
   type        = number
   default     = 3
 }
+
+# Declares the variable locally so the chaosforge module can use the enable_fis flag.
+variable "enable_fis" {
+  description = "Create FIS experiment templates (blocked by SubscriptionRequiredException until account is activated for FIS)"
+  type        = bool
+  default     = true
+}

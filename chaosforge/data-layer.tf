@@ -22,7 +22,7 @@ locals {
 # Verified against real images: postgres:16.4-alpine uid 70:70 (Alpine, not Debian's 999);
 # redpanda:v24.2.7 uid 101:101. Re-verify if either image tag changes.
 variable "efs_posix_ids" {
-  description = "POSIX uid/gid each EFS access point's root directory is created and chowned with — MUST match what the container image actually runs as. Verified against the images pinned above; re-verify on tag bump."
+  description = "POSIX uid/gid each EFS access points root directory is created and chowned with - MUST match what the container image actually runs as. Verified against the images pinned above; re-verify on tag bump."
   type = map(object({
     uid = number
     gid = number
@@ -78,7 +78,7 @@ resource "aws_efs_mount_target" "data" {
 resource "aws_security_group" "efs_mount_targets" {
   name_prefix = "chaosforge-efs-"
   vpc_id      = local.vpc_id
-  description = "EFS mount targets for chaosforge's stateful containers' data directories (NFS, port 2049)."
+  description = "EFS mount targets for chaosforge stateful container data directories (NFS, port 2049)."
 }
 
 # Keyed on the EFS-backed map, not the stateful map. Only a service that actually mounts a

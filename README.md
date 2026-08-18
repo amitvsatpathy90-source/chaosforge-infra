@@ -1,4 +1,4 @@
-# ChaosForge-Infra
+# ChaosForge-Infra (CF-Infra)
 
 Terraform for the AWS deployment of [chaosforge](../chaosforge) (chaos engineering control plane)
 and [revenue-protection-engine](../revenue-protection-engine) (its target system under test).
