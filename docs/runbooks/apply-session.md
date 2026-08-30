@@ -1,9 +1,11 @@
 # Runbook — apply a session and prove the stack boots
 
-**Status: derived from reading the code + README, NOT from a run.** No `terraform apply` has been
-executed against this repo. Treat this as the plan to execute and the things to verify, not a
-transcript. The two items most likely to bite on the first real run are called out inline
-(`nfsvers`, AL2023 package presence, EFS ownership uids).
+**Status: run and proven — the stack is live** (single-operator AWS lab account, us-east-1, cluster
+`chaosforge-platform`). Originally written from reading the code + README with no `terraform apply`
+executed; that gap is closed. This is now a repeatable session runbook, not a plan awaiting its
+first execution. Sharp edges called out inline (`nfsvers`, AL2023 package presence, EFS ownership
+uids) were the ones that mattered on the first real run — kept here as the checklist for every
+session after.
 
 This runbook exists because the finding that produced ADR-0404 came from reading code, and reading
 code is exactly what cannot prove a stack boots. The proof is here, at apply time.

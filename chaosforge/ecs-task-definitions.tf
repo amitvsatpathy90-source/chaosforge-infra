@@ -55,6 +55,13 @@ locals {
         # advertised address MUST be externally reachable, unlike compose's `localhost` — every
         # other task resolves redpanda by this Cloud Map name, not by container-internal loopback.
         "--advertise-kafka-addr=PLAINTEXT://redpanda.chaosforge.internal:9092",
+        # epoll: default AIO reactor unsupported on NFS/EFS (Seastar io_submit ENOTSUPP) — same
+        # fix already applied in rpe/ecs-task-definitions.tf.
+        "--reactor-backend", "epoll",
+        # kernel-page-cache: reactor-backend alone doesn't fix this — disk I/O still goes through
+        # O_DIRECT+AIO regardless of reactor backend, and EFS/NFS rejects that (RWF_NOWAIT
+        # unsupported). This bypasses O_DIRECT entirely, routing through the normal page cache.
+        "--kernel-page-cache", "true",
       ]
       environment = []
       secrets     = []
@@ -253,20 +260,22 @@ resource "aws_ecs_task_definition" "chaosforge_app" {
 
   # Writable scratch for /tmp, required because readonlyRootFilesystem=true (below) freezes the rest
   # of the container's filesystem. A bare volume{} with no efs_volume_configuration is Fargate
-  # ephemeral storage (the task's built-in 20 GB) — $0, wiped on task stop. Fargate does not support
-  # linuxParameters.tmpfs, so this scratch-volume mount is the supported writable-/tmp mechanism.
-  volume {
-    name = "scratch"
-  }
+  # ephemeral storage (the task's built-in 20 GB) — $0, wiped on task stop.
+  # SUPERSEDED 2026-08: AWS added Fargate tmpfs support 2026-01-06; migrated to linuxParameters.tmpfs
+  # below (mode 1777 by default, avoids the uid-1000-vs-root-owned scratch-volume conflict).
+  # volume {
+  # volume {
+  #   name = "scratch"
+  # }
 
   container_definitions = jsonencode([{
     name = each.key
     # E5 hardening (verified locally against eclipse-temurin:21.0.7_6-jre under `docker run
-    # --read-only`): run as a non-root uid and freeze the root filesystem. 1000 is not arbitrary —
-    # the mTLS EFS access point roots its files at owner_uid 1000 (mtls.tf), so the app tier already
-    # had to be uid 1000 to read its certs. HOME=/tmp is added below because temurin's default
+    # --read-only`): run as a non-root uid and freeze the root filesystem. 1001 is not arbitrary —
+    # the mTLS EFS access point roots its files at owner_uid 1001 (mtls.tf), so the app tier already
+    # had to be uid 1001 to read its certs. HOME=/tmp is added below because temurin's default
     # HOME=/home/ubuntu is unwritable under a read-only root, and some libraries write to $HOME.
-    user                   = "1000:1000"
+    user                   = "1001:1001"
     readonlyRootFilesystem = true
     image                  = each.value.image
     essential              = true
@@ -276,14 +285,32 @@ resource "aws_ecs_task_definition" "chaosforge_app" {
     }]
     environment = concat(each.value.environment, [{ name = "HOME", value = "/tmp" }])
     secrets     = each.value.secrets
-    mountPoints = concat(
-      [{ sourceVolume = "scratch", containerPath = "/tmp", readOnly = false }],
-      each.value.needs_mtls_mount ? [{
-        sourceVolume  = "mtls"
-        containerPath = "/mnt/mtls"
-        readOnly      = true
-      }] : []
-    )
+
+    # mountPoints = concat(
+    #   [{ sourceVolume = "scratch", containerPath = "/tmp", readOnly = false }],
+    #   each.value.needs_mtls_mount ? [{
+    #     sourceVolume  = "mtls"
+    #     containerPath = "/mnt/mtls"
+    #     readOnly      = true
+    #   }] : []
+    # )
+
+    # tmpfs, not an ECS bind-mount scratch volume — AWS added Fargate tmpfs support 2026-01-06,
+    # after this scratch-volume workaround was written (see rpe/ecs-task-definitions.tf for the
+    # matching fix + full rationale). tmpfs defaults to mode 1777, fixing the uid-1000-vs-root-owned
+    # scratch-volume conflict; readonlyRootFilesystem and the mtls mount are unaffected.
+    linuxParameters = {
+      tmpfs = [{
+        containerPath = "/tmp"
+        size          = 64
+      }]
+    }
+    mountPoints = each.value.needs_mtls_mount ? [{
+      sourceVolume  = "mtls"
+      containerPath = "/mnt/mtls"
+      readOnly      = true
+    }] : []
+
     logConfiguration = {
       logDriver = "awslogs"
       options = {

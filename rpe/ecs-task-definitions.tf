@@ -70,9 +70,18 @@ locals {
         "--pandaproxy-addr", "internal://0.0.0.0:8082,external://0.0.0.0:18082",
         "--advertise-pandaproxy-addr", "internal://redpanda.rpe.internal:8082,external://redpanda.rpe.internal:18082",
         "--schema-registry-addr", "internal://0.0.0.0:8081,external://0.0.0.0:18081",
-        "--rpc-addr", "redpanda.rpe.internal:33145",
+        # bind, not advertise — was DNS name, failed to resolve pre-Cloud-Map-registration
+        # "--rpc-addr", "redpanda.rpe.internal:33145",
+        "--rpc-addr", "0.0.0.0:33145",
         "--advertise-rpc-addr", "redpanda.rpe.internal:33145",
-        "--smp", "1", "--memory", "400M", "--mode", "dev-container", "--default-log-level=warn",
+        "--smp", "1", "--memory", "400M", "--mode", "dev-container",
+        # epoll: default AIO reactor unsupported on NFS/EFS (Seastar io_submit ENOTSUPP)
+        "--reactor-backend", "epoll",
+        # kernel-page-cache: reactor-backend alone doesn't fix this — disk I/O still goes through
+        # O_DIRECT+AIO regardless of reactor backend, and EFS/NFS rejects that (RWF_NOWAIT
+        # unsupported). This bypasses O_DIRECT entirely, routing through the normal page cache.
+        "--kernel-page-cache", "true",
+        "--default-log-level=warn",
       ]
       environment = []
       secrets     = []
@@ -169,7 +178,10 @@ locals {
         { name = "KAFKA_BOOTSTRAP_SERVERS", value = "redpanda.rpe.internal:9092" },
         { name = "REDIS_HOST", value = "redis.rpe.internal" },
         { name = "REDIS_PORT", value = "6379" },
-        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe" },
+        # currentSchema pins unqualified SQL onto detection's Flyway schema — mirrors compose
+        # (docker-compose.services.yml), since AWS shares its single-login topology (ADR-0403),
+        # not k8s's per-role ALTER ROLE SET search_path (12-bootstrap-grants.yaml).
+        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe?currentSchema=detection" },
         { name = "DB_USER", value = "rpe" },
         # F-06 note: RPE already emits structured JSON via each service's logback-spring.xml
         # (LogstashEncoder, active on any non-dev profile) — so LOGGING_STRUCTURED_FORMAT_CONSOLE
@@ -184,7 +196,8 @@ locals {
       port   = 8082
       environment = [
         { name = "KAFKA_BOOTSTRAP_SERVERS", value = "redpanda.rpe.internal:9092" },
-        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe" },
+        # relay has no schema of its own — reads/writes detection's outbox table directly.
+        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe?currentSchema=detection" },
         { name = "DB_USER", value = "rpe" },
       ]
       secrets = concat(local.rpe_oauth_secrets, local.rpe_db_secrets)
@@ -196,7 +209,7 @@ locals {
       port   = 8083
       environment = [
         { name = "KAFKA_BOOTSTRAP_SERVERS", value = "redpanda.rpe.internal:9092" },
-        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe" },
+        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe?currentSchema=alert" },
         { name = "DB_USER", value = "rpe" },
       ]
       secrets = concat(local.rpe_oauth_secrets, local.rpe_db_secrets)
@@ -210,7 +223,9 @@ locals {
         { name = "KAFKA_BOOTSTRAP_SERVERS", value = "redpanda.rpe.internal:9092" },
         { name = "REDIS_HOST", value = "redis.rpe.internal" },
         { name = "REDIS_PORT", value = "6379" },
-        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe" },
+        # comma-separated search_path: writes triaged_alerts (own schema), reads processed_alerts
+        # (alert's schema) — mirrors k8s's ALTER ROLE triage_role SET search_path = triage, alert.
+        { name = "DB_URL", value = "jdbc:postgresql://postgres.rpe.internal:5432/rpe?currentSchema=triage,alert" },
         { name = "DB_USER", value = "rpe" },
         { name = "TRIAGE_LLM_MODEL", value = "gpt-4o-mini" },
       ]
@@ -233,9 +248,9 @@ resource "aws_ecs_task_definition" "rpe_app" {
 
   # Writable scratch for /tmp under readonlyRootFilesystem=true — see chaosforge/ecs-task-definitions.tf
   # for the full rationale. Fargate ephemeral storage, $0, wiped on task stop.
-  volume {
-    name = "scratch"
-  }
+  # volume {
+  #   name = "scratch"
+  # }
 
   container_definitions = jsonencode([{
     name = each.key
@@ -253,7 +268,21 @@ resource "aws_ecs_task_definition" "rpe_app" {
     }]
     environment = concat(each.value.environment, [{ name = "HOME", value = "/tmp" }])
     secrets     = each.value.secrets
-    mountPoints = [{ sourceVolume = "scratch", containerPath = "/tmp", readOnly = false }]
+
+    # mountPoints = [{ sourceVolume = "scratch", containerPath = "/tmp", readOnly = false }]
+
+    # tmpfs, not an ECS bind-mount scratch volume — AWS added Fargate tmpfs support 2026-01-06
+    # (this comment's prior scratch-volume approach predates that; verified against AWS's official
+    # what's-new post before this change). tmpfs mounts default to mode 1777, so uid 1000 can create
+    # Tomcat's webserver tempdir (alert/relay/triage) without the root-owned scratch volume's
+    # ownership conflict. readonlyRootFilesystem stays on.
+    linuxParameters = {
+      tmpfs = [{
+        containerPath = "/tmp"
+        size          = 64
+      }]
+    }
+
     # Container-level health check (arch-audit F-05). Without this ECS treats "task RUNNING" as
     # healthy, so a Spring context still booting (or a live-locked JVM) stays registered in Cloud
     # Map / passes ECS's own health gate the whole time. /actuator/health/readiness is permitAll

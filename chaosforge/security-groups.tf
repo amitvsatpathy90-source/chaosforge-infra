@@ -313,7 +313,7 @@ resource "aws_vpc_security_group_egress_rule" "exec_to_redpanda" {
 # this rule is the L4 half, the TLS handshake is the real gate.
 resource "aws_vpc_security_group_ingress_rule" "scrape_from_prometheus" {
   for_each = {
-    edge_gateway      = { sg = aws_security_group.edge_gateway.id, port = 8080 }
+    edge_gateway      = { sg = aws_security_group.edge_gateway.id, port = 9080 }
     control_plane     = { sg = aws_security_group.control_plane.id, port = 8081 }
     execution_service = { sg = aws_security_group.execution_service.id, port = 8082 }
   }
