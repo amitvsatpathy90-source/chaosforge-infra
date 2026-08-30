@@ -28,10 +28,16 @@ cp "${CHAOSFORGE}/docker/grafana/dashboards/chaosforge-slis.json"          "${HE
 aws ecr get-login-password --region "${REGION}" \
   | docker login --username AWS --password-stdin "${REGISTRY}"
 
-docker build -f "${HERE}/Dockerfile.prometheus" -t "${REGISTRY}/observability/prometheus:v2.55.1-obs2" "${HERE}"
+# Ensure a docker-container builder exists — the default 'docker' driver silently
+# ignores --platform for non-native targets on this host (no error, wrong arch).
+docker buildx inspect amd64builder >/dev/null 2>&1 || \
+  docker buildx create --name amd64builder --driver docker-container
+docker buildx use amd64builder
+
+docker buildx build --platform linux/amd64 -f "${HERE}/Dockerfile.prometheus" -t "${REGISTRY}/observability/prometheus:v2.55.1-obs2" "${HERE}" --load
 docker push "${REGISTRY}/observability/prometheus:v2.55.1-obs2"
 
-docker build -f "${HERE}/Dockerfile.grafana" -t "${REGISTRY}/observability/grafana:11.3.0-obs1" "${HERE}"
+docker buildx build --platform linux/amd64 -f "${HERE}/Dockerfile.grafana" -t "${REGISTRY}/observability/grafana:11.3.0-obs1" "${HERE}" --load
 docker push "${REGISTRY}/observability/grafana:11.3.0-obs1"
 
 # Copied context files are build artifacts, not sources — clean up so they never get committed.

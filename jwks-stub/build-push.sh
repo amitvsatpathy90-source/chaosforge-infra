@@ -56,7 +56,13 @@ fi
 aws ecr get-login-password --region "${REGION}" \
   | docker login --username AWS --password-stdin "${REGISTRY}"
 
-docker build -f "${HERE}/Dockerfile.jwks-stub" -t "${REGISTRY}/platform/jwks-stub:${TAG}" "${HERE}"
+# Ensure a docker-container builder exists — the default 'docker' driver silently
+# ignores --platform for non-native targets on this host (no error, wrong arch).
+docker buildx inspect amd64builder >/dev/null 2>&1 || \
+  docker buildx create --name amd64builder --driver docker-container
+docker buildx use amd64builder
+
+docker buildx build --platform linux/amd64 -f "${HERE}/Dockerfile.jwks-stub" -t "${REGISTRY}/platform/jwks-stub:${TAG}" "${HERE}" --load
 docker push "${REGISTRY}/platform/jwks-stub:${TAG}"
 
 # Copied context file is a build artifact, not a source — clean up so it never gets committed.

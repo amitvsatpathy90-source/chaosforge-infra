@@ -1,3 +1,5 @@
+# Terraform state, credentials, and local-machine overrides — none of this is source, and
+# tfvars/backend.hcl carry real values (account IDs, passwords, SG ids) the *.example files don't.
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -8,7 +10,21 @@ backend.hcl
 crash.log
 override.tf
 override.tf.json
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
 .DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo
+
 # observability/build-push.sh copies these from the sibling repos at build time and deletes them
 # after; ignored in case an interrupted build leaves them behind — their sources of truth live in
 # the chaosforge / revenue-protection-engine repos, never here.
@@ -37,3 +53,4 @@ jwks-stub/jwks.json
 # narrower .claude/settings.local.json-only ignore this repo used to carry.
 .claude/
 CLAUDE.md
+*.tfplan

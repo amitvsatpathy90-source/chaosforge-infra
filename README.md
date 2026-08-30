@@ -203,6 +203,26 @@ Apicurio. There is no Apicurio in this AWS deployment at all — nothing at runt
 function. See "Known deviations". The C29 compatibility gate — the control that matters — runs
 registry-free in CI.
 
+## Testing against AWS (endpoint reachability)
+
+Not every locally-testable endpoint is reachable once deployed — two structural facts explain the
+gap, both by design, not drift:
+
+- **Actuator is split from the public API on chaosforge's Edge Gateway.** `application.yml` moves
+health/info/prometheus off the public port to `9080` (SEC-04); the public port (`8080`, or `443`
+in ALB mode) serves only the gateway's own routes. `GET /actuator/health` will not respond on the
+public address — that's the point, not a bug. Only `ScenarioProxyController`'s two routes
+(`GET /v1/scenarios/{id}`, `POST /v1/scenarios/{id}:run`) are gateway-proxied and externally
+reachable; live-tested with a nonexistent scenario UUID + a locally-minted OPERATOR JWT — clean
+`404`, confirming JWT validation against the shared JWKS stub, gateway↔CP mTLS, and ADR-0528's
+absent/cross-tenant collapse all hold in AWS.
+- **Only the Edge Gateway is public (ADR-0511).** Control Plane, Execution Service, and all of RPE
+have zero public ingress in this deployment. `cf-smoke-test.json`'s tenant/rule-set/scenario
+*creation* steps and its AI-draft step cannot run against AWS via a URL+token swap alone: creation
+needs CP exposure (a real infra change, not attempted here), and AI drafting is permanently
+blocked since Ollama isn't deployed to AWS (see "Known deviations"). `rpe-actuator.json` is
+entirely local-only — RPE has no public IP at all.
+
 ## Cost model (Module 5.5 — the "no idle cost" contract)
 
 Running everything (all 13 services, both systems) costs **~$0.30/hour** of Fargate. Idle cost is
@@ -346,7 +366,7 @@ they're visible without reading every `.tf` file:
   It didn't: every resource-server decoder is built via
   `NimbusJwtDecoder`/`NimbusReactiveJwtDecoder.withJwkSetUri(...)`, whose builder calls
   `Assert.hasText` — and `StringUtils.hasText(" ") == false` — so the space threw at bean
-  construction and crashlooped all six app services (RPE ×4, chaosforge gateway + CP) rather than
+  construction and crashlooped six app services (RPE ×4, chaosforge gateway + CP) rather than
   401-ing. No test caught it: the decoder is gated `@ConditionalOnWebApplication(REACTIVE)` and the
   suites boot `webEnvironment = NONE`. Now a single nginx Fargate task in `foundation/` serves a
   merged JWK Set (`rpe-lab-1` + `chaosforge-lab-1`, each decoder picking its own by `kid`) at

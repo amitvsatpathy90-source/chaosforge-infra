@@ -23,7 +23,7 @@ scrape_configs:
   - job_name: edge-gateway
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["edge-gateway.chaosforge.internal:8080"]
+      - targets: ["edge-gateway.chaosforge.internal:9080"]
 
   # CP/Exec run the `mtls` Spring profile in AWS (client-auth: need at the TLS layer — a scrape
   # without a client cert is rejected at the handshake, before any HTTP). Prometheus presents its
