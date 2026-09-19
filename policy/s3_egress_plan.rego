@@ -1,6 +1,7 @@
 # Per-SG coverage gate for R1, against resolved plan JSON (SG ids concrete).
-# STATUS: written, NOT yet exercised against real plan output — needs SGs already existing
-# (unknowns from a from-clean plan break the matching). Validate before relying on it.
+# STATUS: logic covered by s3_egress_plan_test.rego. Needs SGs already existing as
+# a clean plan may have both sets empty and this silently passes. Run only against a
+# post-apply plan.
 #   terraform -chdir=chaosforge plan -out=tf.plan <vars...> && terraform show -json tf.plan > plan.json
 #   conftest test --policy policy/s3_egress_plan.rego plan.json
 

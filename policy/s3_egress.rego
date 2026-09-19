@@ -12,7 +12,8 @@ import future.keywords.in
 # --combine input shape: [ {path: "...", contents: {resource: {...}}}, ... ]
 # hcl2 parser shape: resource.<type>.<name> is a LIST of block bodies, so iterate the instances
 # rather than index by name (indexing a list by a string name returns undefined -> always-empty set
-# -> an always-red gate; that bug was caught by the with-fix fixture during verification).
+# -> an always-red gate; that bug was caught once during verification). s3_egress_test.rego now
+# pins this as a permanent regression test.
 runs_ecs_tasks if {
 	some f in input
 	f.contents.resource.aws_ecs_service
