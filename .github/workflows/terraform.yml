@@ -23,7 +23,26 @@ permissions:
   contents: read
 
 jobs:
+  # Rego policy logic tests — root-independent (mocked input), so this runs once, not per-root.
+  # Covers s3_egress.rego (list-indexing bug caught once during authoring, now pinned as a
+  # regression test) and s3_egress_plan.rego (needs resolved SG IDs a clean plan may not have;
+  # mocked here instead of run against a real plan — see policy/*_test.rego).
+  policy-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install conftest
+        run: |
+          ver="0.69.0"
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${ver}/conftest_${ver}_Linux_x86_64.tar.gz" | tar -xz conftest
+          sudo install conftest /usr/local/bin/
+      - name: Verify Rego policy tests
+        run: conftest verify --policy policy/
+
   validate:
+    needs: policy-tests
     runs-on: ubuntu-latest
     strategy:
       matrix:

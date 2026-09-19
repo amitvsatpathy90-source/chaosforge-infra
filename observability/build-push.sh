@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds + pushes the two derived observability images. Run AFTER `terraform apply` in foundation/
 # (the ECR repos must exist). Assumes the standard sibling layout:
-#   ~/work/repos/{chaosforge, revenue-protection-engine, chaosforge-infra}
+#   ../{chaosforge, revenue-protection-engine, chaosforge-infra}
 #
 # Usage: ./build-push.sh <aws-account-id> [region]
 set -euo pipefail

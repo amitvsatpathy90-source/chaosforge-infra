@@ -93,7 +93,7 @@ aws ecr get-login-password | docker login --username AWS --password-stdin <accou
 # chaosforge postgres is a DERIVED image, not a plain mirror — it bakes in the same
 # init-databases.sql that docker-compose mounts (creates chaosforge_cp + chaosforge_exec).
 # Without it, CP/Exec crashloop on "database does not exist" (Module 5.5 audit fix).
-cd ~/work/repos/chaosforge
+cd ../chaosforge
 printf 'FROM postgres:16.4-alpine\nCOPY docker/postgres/init-databases.sql /docker-entrypoint-initdb.d/\n' \
   | docker build -t <account>.dkr.ecr.us-east-1.amazonaws.com/chaosforge/mirror/postgres:16.4-alpine-cf1 -f - .
 docker push <account>.dkr.ecr.us-east-1.amazonaws.com/chaosforge/mirror/postgres:16.4-alpine-cf1
@@ -122,8 +122,8 @@ decoders can validate tokens. Generate each repo's key material once, then build
 image after the first foundation apply:
 
 ```bash
-~/work/repos/revenue-protection-engine/deploy/oauth/generate-jwks.sh   # writes the rpe-lab-1 keypair
-~/work/repos/chaosforge/docker/jwks/generate-jwks.sh                    # writes the chaosforge-lab-1 keypair
+../revenue-protection-engine/deploy/oauth/generate-jwks.sh   # writes the rpe-lab-1 keypair
+../chaosforge/docker/jwks/generate-jwks.sh                    # writes the chaosforge-lab-1 keypair
 jwks-stub/build-push.sh <account-id>                                    # merges both PUBLIC sets, pushes to ECR
 ```
 

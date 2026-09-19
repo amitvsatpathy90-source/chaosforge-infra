@@ -40,7 +40,7 @@ tier is immune: it forces `user=1000:1000`; only the data tier trusts the image 
 
 ```bash
 grep -rn "permitAll\|/actuator/health" \
-  ~/work/repos/chaosforge/edge-gateway/src/main/java/io/chaosforge/gateway/config/SecurityConfig.java
+  ../chaosforge/edge-gateway/src/main/java/io/chaosforge/gateway/config/SecurityConfig.java
 ```
 
 **0c. Confirm the mTLS SANs** (deviation #11, unverifiable from infra) — each service cert needs
@@ -48,7 +48,7 @@ grep -rn "permitAll\|/actuator/health" \
 DNS. `generate-certs.sh` already emits these; confirm before trusting a pre-existing cert set:
 
 ```bash
-grep -n "chaosforge.internal" ~/work/repos/chaosforge/docker/mtls/generate-certs.sh
+grep -n "chaosforge.internal" ../chaosforge/docker/mtls/generate-certs.sh
 ```
 
 ---
@@ -79,8 +79,8 @@ terraform apply \
 ACCOUNT=<your-account-id>
 
 # JWKS stub (ADR-0404). Keys first, then merge + push.
-~/work/repos/revenue-protection-engine/deploy/oauth/generate-jwks.sh   # rpe-lab-1 keypair
-~/work/repos/chaosforge/docker/jwks/generate-jwks.sh                    # chaosforge-lab-1 keypair
+../revenue-protection-engine/deploy/oauth/generate-jwks.sh   # rpe-lab-1 keypair
+../chaosforge/docker/jwks/generate-jwks.sh                    # chaosforge-lab-1 keypair
 jwks-stub/build-push.sh $ACCOUNT              # merges PUBLIC sets; refuses a private component
 
 observability/build-push.sh $ACCOUNT          # prometheus + grafana derived images
@@ -129,10 +129,10 @@ from a throwaway EC2 mount helper inside the VPC.
 
 `generate-certs.sh` writes to `chaosforge/docker/mtls/certs/`.
 
-| EFS (access-point path, forced uid) | Files | Consumed by |
-|---|---|---|
-| `chaosforge-mtls-material` (`/mtls`, uid 1000) | `edge-gateway-keystore.p12`, `control-plane-keystore.p12`, `execution-service-keystore.p12`, `truststore.p12` | gateway/CP/exec at `/mnt/mtls/…` |
-| `observability-mtls` (`/obs-mtls`, uid 65534) | `prometheus-cert.pem`, `prometheus-key.pem`, `ca-cert.pem` | prometheus at `/mnt/mtls/…` |
+| EFS (access-point path, forced uid)            | Files | Consumed by |
+|------------------------------------------------|---|---|
+| `chaosforge-mtls-material` (`/mtls`, uid 1001) | `edge-gateway-keystore.p12`, `control-plane-keystore.p12`, `execution-service-keystore.p12`, `truststore.p12` | gateway/CP/exec at `/mnt/mtls/…` |
+| `observability-mtls` (`/obs-mtls`, uid 65534)  | `prometheus-cert.pem`, `prometheus-key.pem`, `ca-cert.pem` | prometheus at `/mnt/mtls/…` |
 
 **Never upload** `ca-key.pem` (CA private key — "never leaves this host") or the per-service
 `*-key.pem` (already sealed in the `.p12`).
@@ -148,10 +148,10 @@ avoids the R2 task-role boundary, which blocks the `s3:GetObject` a Fargate-base
 
 ```bash
 REGION=us-east-1
-INFRA=~/work/repos/chaosforge-infra
+INFRA=../chaosforge-infra
 
 # 0. Generate certs locally with the SAME passwords passed to chaosforge in Phase 3
-cd ~/work/repos/chaosforge
+cd ../chaosforge
 MTLS_KEYSTORE_PASSWORD=<KS> MTLS_TRUSTSTORE_PASSWORD=<TS> ./docker/mtls/generate-certs.sh
 
 # 1. Resolve ids
@@ -187,10 +187,10 @@ ssh ec2-user@$IP <<EOF
   sudo mkdir -p /mnt/cf/mtls /mnt/obs/obs-mtls
   sudo cp /tmp/*-keystore.p12 /tmp/truststore.p12 /mnt/cf/mtls/
   sudo cp /tmp/prometheus-*.pem /tmp/ca-cert.pem   /mnt/obs/obs-mtls/
-  sudo chown -R 1000:1000  /mnt/cf/mtls
+  sudo chown -R 1001:1001  /mnt/cf/mtls
   sudo chown -R 65534:65534 /mnt/obs/obs-mtls
   sudo chmod 0555 /mnt/cf/mtls /mnt/obs/obs-mtls
-  ls -ln /mnt/cf/mtls /mnt/obs/obs-mtls    # VERIFY: 4 files @1000, 3 files @65534
+  ls -ln /mnt/cf/mtls /mnt/obs/obs-mtls    # VERIFY: 4 files @1001, 3 files @65534
   sudo umount /mnt/cf /mnt/obs
   rm -f /tmp/*.p12 /tmp/*.pem
 EOF
@@ -271,14 +271,12 @@ cd ../foundation && terraform destroy <vars…>
 
 ---
 
-## Weakest links (verify live, first run)
+## Confirmed on the live run
 
-- **Phase 3 app-image push** — the task defs need images at a real SHA in the IMMUTABLE repos; CI's
-  job on main, or a manual build.
-- **Phase 4 EFS population** — `nfsvers`, AL2023 packages, and the ownership uids are reasoned from
-  the SG rules and `generate-certs.sh`, not run.
-- **Task sizing** — every CPU/memory value in `{rpe,chaosforge}/ecs-task-definitions.tf` is reasoned,
-  not load-verified (their own headers say so). During Phase 6, record per-service CloudWatch
-  CPU/memory utilization and note the numbers against the task-def comments — that recording, not a
-  checkbox, is what closes the "reasoned" caveat (verification.md rule 7).
-- **Nothing here is proven until it runs.** That is the point of the runbook.
+- **Phase 3 app-image push** — confirmed; all 10 rpe + foundation services reached steady state.
+- **Phase 4 EFS population** — `nfsvers=4.1` and AL2023 `nfs-utils` presence confirmed on the live
+  run. Ownership uid for `chaosforge-mtls-material` was found wrong (1000) and corrected to 1001
+  to match the access point's real `owner_uid` — reflected in this doc's Phase 4 table above.
+- **Task sizing** — CPU/memory values in `{rpe,chaosforge}/ecs-task-definitions.tf` are still not
+  load-verified against real traffic. Record per-service CloudWatch utilization during Phase 6 and
+  compare against the task-def comments — that recording is what closes this gap.

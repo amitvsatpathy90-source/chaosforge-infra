@@ -5,7 +5,7 @@
 #
 # Run AFTER `terraform apply` in foundation/ (the ECR repo must exist) and AFTER both repos'
 # generate-jwks.sh have been run at least once. Assumes the standard sibling layout:
-#   ~/work/repos/{chaosforge, revenue-protection-engine, chaosforge-infra}
+#   ../{chaosforge, revenue-protection-engine, chaosforge-infra}
 #
 # Usage: ./build-push.sh <aws-account-id> [region]
 set -euo pipefail
