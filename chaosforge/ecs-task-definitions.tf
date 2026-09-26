@@ -157,7 +157,7 @@ locals {
       cpu    = 512
       memory = 1024
       port   = 8080
-      environment = [
+      environment = concat([
         { name = "SPRING_PROFILES_ACTIVE", value = "mtls" },
         { name = "CONTROL_PLANE_URL", value = "https://control-plane.chaosforge.internal:8081" },
         { name = "MTLS_KEYSTORE", value = "file:/mnt/mtls/edge-gateway-keystore.p12" },
@@ -170,7 +170,14 @@ locals {
         # zero margin for SIGKILL to land mid-drain. RPE runs 20s < its stopTimeout (ADR-22);
         # matched here without touching application.yml (local-parity invariant).
         { name = "SPRING_LIFECYCLE_TIMEOUTPERSHUTDOWNPHASE", value = "20s" },
-      ]
+        ], var.enable_alb ? [
+        # ALB terminates TLS upstream, forwards plain HTTP to Fargate — without this, the gateway's
+        # RFC 9728 metadata endpoint and the MCP 401 WWW-Authenticate header derive scheme/host
+        # straight from the request URI and report "http" instead of "https". Inert while
+        # enable_alb=false: ALB-less mode has no proxy in front, so getScheme()/getAuthority()
+        # already return the real values there — this produces zero terraform plan diff today.
+        { name = "SERVER_FORWARD_HEADERS_STRATEGY", value = "framework" }
+      ] : [])
       secrets          = local.chaosforge_mtls_secrets
       needs_mtls_mount = true
     }
