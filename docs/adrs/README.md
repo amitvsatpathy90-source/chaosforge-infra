@@ -17,3 +17,4 @@ here instead of duplicating this table.
 | Date | Change |
 |---|---|
 | 2026-08-09 | Index compiled from the full ADR corpus (ADR-0401–0404) |
+
