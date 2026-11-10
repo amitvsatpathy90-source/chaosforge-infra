@@ -1,6 +1,6 @@
 # Runbook — apply a session and prove the stack boots
 
-**Status: run and proven — the stack is live** (single-operator AWS lab account, us-east-1, cluster
+**Status: live session executed and verified** (single-operator AWS lab account, us-east-1, cluster
 `chaosforge-platform`). Originally written from reading the code + README with no `terraform apply`
 executed; that gap is closed. This is now a repeatable session runbook, not a plan awaiting its
 first execution. Sharp edges called out inline (`nfsvers`, AL2023 package presence, EFS ownership
@@ -129,18 +129,18 @@ from a throwaway EC2 mount helper inside the VPC.
 
 `generate-certs.sh` writes to `chaosforge/docker/mtls/certs/`.
 
-| EFS (access-point path, forced uid)            | Files | Consumed by |
-|------------------------------------------------|---|---|
+| EFS (access-point path, forced uid)            | Files                                                                                                         | Consumed by                      |
+|------------------------------------------------|---------------------------------------------------------------------------------------------------------------|----------------------------------|
 | `chaosforge-mtls-material` (`/mtls`, uid 1001) | `edge-gateway-keystore.p12`, `control-plane-keystore.p12`, `execution-service-keystore.p12`, `truststore.p12` | gateway/CP/exec at `/mnt/mtls/…` |
-| `observability-mtls` (`/obs-mtls`, uid 65534)  | `prometheus-cert.pem`, `prometheus-key.pem`, `ca-cert.pem` | prometheus at `/mnt/mtls/…` |
+| `observability-mtls` (`/obs-mtls`, uid 65534)  | `prometheus-cert.pem`, `prometheus-key.pem`, `ca-cert.pem`                                                    | prometheus at `/mnt/mtls/…`      |
 
 **Never upload** `ca-key.pem` (CA private key — "never leaves this host") or the per-service
 `*-key.pem` (already sealed in the `.p12`).
 
 ### Why no EFS rule change is needed
 
-Attach to the helper the two SGs already permitted to mount each volume — `control_plane` SG
-(`chaosforge-mtls` ingress) and `prometheus` SG (`observability-mtls` ingress) — plus one throwaway
+Attach to the helper the two SGs already permitted to mount each volume — `control_plane` SG (`chaosforge-mtls` ingress)
+and `prometheus` SG (`observability-mtls` ingress) — plus one throwaway
 SSH SG scoped to your IP. Direct NFS mount (not via the access point) needs no instance profile and
 avoids the R2 task-role boundary, which blocks the `s3:GetObject` a Fargate-based helper would need.
 
@@ -208,8 +208,8 @@ aws ec2 delete-security-group --group-id $SSH_SG   # after the instance is fully
 2. **Passwords must match Phase 3.** `generate-certs.sh` bakes `MTLS_*_PASSWORD` into the `.p12`;
    they must be byte-identical to the `-var mtls_*_password` values or the keystore silently won't
    open (`chaosforge/secrets.tf` warns of this).
-3. **Reasoned, not run:** `nfsvers=4.1` and AL2023 shipping `nfs-utils` are the two things to
-   confirm live on the first attempt.
+3. **Repeat-session checks:** `nfsvers=4.1` and AL2023 `nfs-utils` were confirmed during the first live run.
+   Recheck if the helper AMI or mount procedure changes.
 
 ### Alternative (no EC2)
 
@@ -242,20 +242,21 @@ for s in edge-gateway control-plane execution-service; do aws logs tail /chaosfo
 ```
 
 **Confirms the crashloop is gone:**
+
 - **Absent:** `IllegalArgumentException` / `jwkSetUri cannot be empty` / any `hasText` failure at
   startup. Its presence means the SSM value didn't take.
 - **Present:** Spring context refresh completes; `/actuator/health/readiness` returns UP.
 - **Token validation working** = a Prometheus scrape of `/actuator/prometheus` returns 200 (needs
   the real scrape token baked, deviation #18) rather than 401.
 
-| Log signature | Cause | Phase-0 check |
-|---|---|---|
-| `Permission denied` / `could not access directory ".../pgdata"` | wrong `efs_posix_ids` uid | 0a |
-| `IllegalArgumentException: jwkSetUri cannot be empty` | SSM value still `" "` (fix didn't apply) | — (must be absent) |
-| repeated 401 on inter-service calls | stub down, or issuer/aud mismatch | `jwks_stub_desired_count=1` |
-| `keystore ... cannot be opened` | mTLS password mismatch, or wrong EFS uid | Phase 4 sharp edges |
-| mTLS `No subject alternative DNS name matching …` | cert SANs missing | 0c |
-| ALB target unhealthy (ALB mode only) | `/actuator/health` not `permitAll` | 0b |
+| Log signature                                                   | Cause                                    | Phase-0 check               |
+|-----------------------------------------------------------------|------------------------------------------|-----------------------------|
+| `Permission denied` / `could not access directory ".../pgdata"` | wrong `efs_posix_ids` uid                | 0a                          |
+| `IllegalArgumentException: jwkSetUri cannot be empty`           | SSM value still `" "` (fix didn't apply) | — (must be absent)          |
+| repeated 401 on inter-service calls                             | stub down, or issuer/aud mismatch        | `jwks_stub_desired_count=1` |
+| `keystore ... cannot be opened`                                 | mTLS password mismatch, or wrong EFS uid | Phase 4 sharp edges         |
+| mTLS `No subject alternative DNS name matching …`               | cert SANs missing                        | 0c                          |
+| ALB target unhealthy (ALB mode only)                            | `/actuator/health` not `permitAll`       | 0b                          |
 
 ---
 
