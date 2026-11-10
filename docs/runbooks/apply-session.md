@@ -202,7 +202,7 @@ aws ec2 delete-security-group --group-id $SSH_SG   # after the instance is fully
 
 ### Sharp edges
 
-1. **Ownership must be uid 1000 / 65534.** Files land on the fs root (not via the access point), so
+1. **Ownership must be uid 1001 / 65534.** Files land on the fs root (not via the access point), so
    ownership isn't auto-stamped — hence the explicit `chown`. `ls -ln` is the checkpoint. Wrong uid
    surfaces later as `keystore … cannot be opened` (app) or a prometheus cert-read error.
 2. **Passwords must match Phase 3.** `generate-certs.sh` bakes `MTLS_*_PASSWORD` into the `.p12`;
@@ -281,3 +281,13 @@ cd ../foundation && terraform destroy <vars…>
 - **Task sizing** — CPU/memory values in `{rpe,chaosforge}/ecs-task-definitions.tf` are still not
   load-verified against real traffic. Record per-service CloudWatch utilization during Phase 6 and
   compare against the task-def comments — that recording is what closes this gap.
+
+## Revision history
+
+| Rev | Date       | Change                                                                                                                  |
+|-----|------------|-------------------------------------------------------------------------------------------------------------------------|
+| 1.0 | 2026-08-16 | Initial — derived from code + README; no apply executed (`v1.0.0-lab` commit date).                                     |
+| 1.1 | 2026-08-30 | Status banner updated from "derived, not run" to first live apply.                                                      |
+| 1.2 | 2026-09-20 | Added "Confirmed on the live run"; `chaosforge-mtls-material` uid 1000 → 1001 (table, chown); machine paths → relative. |
+| 1.3 | 2026-11-10 | Status wording; added repeat-session checks; table/line reflow.                                                         |
+| 1.4 | 2026-11-10 | Sharp edge #1 corrected to uid 1001 / 65534 (missed in 1.2); revision history added.                                    |

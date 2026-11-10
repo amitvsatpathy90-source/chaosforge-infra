@@ -88,6 +88,7 @@ conftest verify --policy policy/
 Expected: 4 tests, 4 passed, 0 failures.
 
 Covers both R1 gates using mocked input:
+
 - `s3_egress.rego` — presence check
 - `s3_egress_plan.rego` — per-security-group coverage check
 
@@ -104,6 +105,7 @@ Java/Gradle changes compile and pass their gates; Rego policy logic is correct a
 input.
 
 **Does not prove:**
+
 - Runtime correctness (e.g., a syntactically valid security-group rule on the wrong port)
 - Cross-root wiring — `terraform_remote_state` only resolves at `plan`/`apply`, in order
   `foundation → rpe → chaosforge`
@@ -121,3 +123,11 @@ Use them here only for local, uncommitted app-code changes we want to verify bef
 Read-only, $0, but requires AWS credentials and existing `foundation` state — a post-first-apply
 step, not part of this offline pass. See [README](../README.md#first-time-setup) for apply
 ordering and backend configuration.
+
+## Revision history
+
+| Rev | Date       | Change                                                                         |
+|-----|------------|--------------------------------------------------------------------------------|
+| 1.0 | 2026-08-16 | Initial offline validation runbook (`v1.0.0-lab` commit date).                 |
+| 1.1 | 2026-09-20 | Rewritten; adds Rego policy tests and `policy-tests` → `validate` CI ordering. |
+| 1.2 | 2026-11-10 | Revision history added.                                                        |
