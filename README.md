@@ -6,6 +6,22 @@ and [revenue-protection-engine](../revenue-protection-engine) (its target system
 On-demand posture: this account is meant to sit near $0 between sessions. Bring the stack up for a
 demo/benchmark run, tear it down after. See `foundation/budgets.tf` for the cost circuit breaker.
 
+## What this is
+
+The AWS infrastructure layer for RPE and ChaosForge. Three Terraform roots
+(`foundation/` → `rpe/` → `chaosforge/`) plus a one-time bootstrap root, each
+with its own state, no cyclic dependencies and a documented apply order.
+ECS Fargate for compute; EFS for stateful services; Cloud Map for service
+discovery; private VPC endpoints for ECR, logs and secrets traffic. GitHub
+Actions authenticates via IAM OIDC (no stored keys) to push images; Terraform
+applies run locally. Idle cost is held near zero by `desired_count = 0` and
+destroy-after-session; a budget-triggered Lambda scales ECS to zero as a backstop.
+
+**Live validation:** one apply session was run. RPE and foundation services
+reached steady state, and one Gateway request validated JWT and Gateway →
+Control Plane mTLS (the 404 was for a nonexistent scenario). The
+budget-triggered scale-to-zero path is configured but not live-trigger-tested.
+
 ## Architecture Decision Records
 
 The project's architectural decisions are maintained in [`docs/adrs/`](docs/adrs/).
